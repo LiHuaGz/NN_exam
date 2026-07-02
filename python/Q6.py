@@ -1,13 +1,7 @@
 """
-MNIST 0-9 classification with the same MLP trained by:
-1. SGD with momentum
-2. Damped mini-batch Natural Gradient (NG) solved by Fisher-vector products + conjugate gradient
-
-Run:
-    pip install torch torchvision matplotlib kagglehub
-    python Q6.py
-
-For a faster CPU smoke test, set TRAIN_LIMIT = 10000 and EPOCHS = 2 below.
+用同一 MLP 做 MNIST 0-9 分类：
+1. 带动量 SGD
+2. 阻尼小批量自然梯度（Fisher 向量积 + 共轭梯度）
 """
 
 from __future__ import annotations
@@ -36,7 +30,7 @@ from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
 
 # -------------------------
-# Config
+# 配置
 # -------------------------
 SEED = 42
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -53,26 +47,26 @@ PLOT_COLORS = {
     "brown": "#937860",
 }
 
-EPOCHS = 5
+EPOCHS = 10
 BATCH_SIZE = 512
 TEST_BATCH_SIZE = 1024
-TRAIN_LIMIT = None  # set to 10000 for a quick CPU test; None means full MNIST training set
+TRAIN_LIMIT = None  # 设为 10000 可快速测试；None 表示完整训练集
 
 SGD_LR = 0.10
 SGD_MOMENTUM = 0.90
 
-# NG hyperparameters. NG is much more expensive per mini-batch than SGD.
+# NG 超参数；单批计算比 SGD 贵很多。
 NG_LR = 0.05
 NG_DAMPING = 0.10
 NG_CG_ITERS = 8
 NG_CG_TOL = 1e-10
-NG_MAX_STEP_NORM = 10.0  # safety clipping for the natural-gradient direction
+NG_MAX_STEP_NORM = 10.0  # 自然梯度方向裁剪
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 # -------------------------
-# Reproducibility
+# 可复现性
 # -------------------------
 def set_seed(seed: int = SEED) -> None:
     random.seed(seed)
@@ -101,7 +95,7 @@ def configure_chinese_font() -> None:
 
 
 # -------------------------
-# Model
+# 模型
 # -------------------------
 class MLP(nn.Module):
     def __init__(self) -> None:
@@ -124,7 +118,7 @@ def count_parameters(model: nn.Module) -> int:
 
 
 # -------------------------
-# Data
+# 数据
 # -------------------------
 MNIST_RAW_FILES = (
     "train-images-idx3-ubyte",
@@ -237,7 +231,7 @@ def make_loaders(
     test_set: torch.utils.data.Dataset,
     seed: int = SEED,
 ) -> Tuple[DataLoader, DataLoader]:
-    # Re-create the train loader for each optimizer so both see the same shuffle order.
+    # 每个优化器重建加载器，保证打乱顺序一致。
     generator = torch.Generator()
     generator.manual_seed(seed)
 
@@ -260,7 +254,7 @@ def make_loaders(
 
 
 # -------------------------
-# Utilities
+# 工具
 # -------------------------
 def trainable_params(model: nn.Module) -> List[torch.nn.Parameter]:
     return [p for p in model.parameters() if p.requires_grad]
@@ -304,7 +298,7 @@ def conjugate_gradient(
     n_steps: int = 10,
     residual_tol: float = 1e-10,
 ) -> torch.Tensor:
-    """Approximately solve A x = b for SPD A using conjugate gradient."""
+    """用共轭梯度近似求解 SPD 系统 A x = b。"""
     x = torch.zeros_like(b)
     r = b.clone()
     p = r.clone()
@@ -332,10 +326,9 @@ def fisher_vector_product(
     damping: float,
 ) -> torch.Tensor:
     """
-    Compute (F + damping * I) v without forming F explicitly.
+    不显式构造 F，计算 (F + damping * I) v。
 
-    F is approximated by the Hessian of KL[p_old(.|x) || p_theta(.|x)] at theta = theta_old.
-    This is the standard Fisher/Gauss-Newton vector product used in natural-gradient methods.
+    F 用 theta_old 处 KL 的 Hessian 近似。
     """
     params = trainable_params(model)
 
@@ -356,7 +349,7 @@ def fisher_vector_product(
 
 
 # -------------------------
-# Training loops
+# 训练循环
 # -------------------------
 def train_sgd(
     model: nn.Module,
@@ -437,7 +430,7 @@ def train_natural_gradient(
             def Avp(v: torch.Tensor) -> torch.Tensor:
                 return fisher_vector_product(model, x, v, damping=NG_DAMPING)
 
-            # Solve (F + lambda I) d = grad, then theta <- theta - lr * d
+            # 解 (F + lambda I) d = grad，再更新 theta。
             nat_dir = conjugate_gradient(
                 Avp,
                 flat_grad,
@@ -480,7 +473,7 @@ def train_natural_gradient(
 
 
 # -------------------------
-# Output
+# 输出
 # -------------------------
 def save_results(rows: List[Dict[str, float]]) -> None:
     configure_chinese_font()
@@ -585,7 +578,7 @@ def main() -> None:
     initial_state = copy.deepcopy(base_model.state_dict())
     all_rows: List[Dict[str, float]] = []
 
-    # SGD run
+    # SGD 训练
     sgd_model = MLP().to(DEVICE)
     sgd_model.load_state_dict(copy.deepcopy(initial_state))
     train_loader, test_loader = make_loaders(train_set, test_set, seed=SEED)
@@ -593,7 +586,7 @@ def main() -> None:
 
     print("")
 
-    # NG run, same initialization and same shuffle order
+    # NG 训练，使用相同初始化和打乱顺序
     ng_model = MLP().to(DEVICE)
     ng_model.load_state_dict(copy.deepcopy(initial_state))
     train_loader, test_loader = make_loaders(train_set, test_set, seed=SEED)

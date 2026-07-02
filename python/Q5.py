@@ -1,22 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Q5: Blind source separation for the attached BSS audio mixtures.
+第5题：BSS 混合音频盲源分离。
 
-The attachment contains only mixed observations, not clean reference sources.
-Therefore this script reports no-reference separation indicators:
+附件只有混合信号，无干净源信号，因此使用无参考指标：
+相关性、归一化互信息、时间协方差非对角项越低越好；
+绝对超额峰度通常越高越好。
 
-  1. residual pairwise correlation, lower is better;
-  2. histogram-based normalized mutual information, lower is better;
-  3. off-diagonal temporal covariance after separation, lower is better;
-  4. absolute excess kurtosis, usually higher for speech/music-like sources.
-
-It compares two blind source separation algorithms:
-
-  - FastICA: separates by maximizing non-Gaussianity;
-  - AMUSE: separates by diagonalizing a delayed covariance matrix.
-
-Outputs are written to python/Q5_outputs by default.
+比较 FastICA 和 AMUSE，结果输出到 python/Q5_outputs。
 """
 from __future__ import annotations
 
@@ -87,7 +78,7 @@ class SeparationResult:
 
 
 def configure_chinese_font() -> None:
-    """Use an installed CJK font so plot titles render Chinese if needed."""
+    """设置中文字体。"""
     candidates = [
         "Microsoft YaHei",
         "SimHei",
@@ -106,7 +97,7 @@ def configure_chinese_font() -> None:
 
 
 def read_wav_mono(path: Path) -> tuple[int, np.ndarray]:
-    """Read a PCM WAV file and return mono float64 samples in roughly [-1, 1]."""
+    """读取 PCM WAV，返回单声道浮点采样。"""
     with wave.open(str(path), "rb") as wav:
         nchannels = wav.getnchannels()
         sample_width = wav.getsampwidth()
@@ -139,7 +130,7 @@ def read_wav_mono(path: Path) -> tuple[int, np.ndarray]:
 
 
 def write_wav_mono(path: Path, sample_rate: int, samples: np.ndarray) -> None:
-    """Write mono float samples as 16-bit PCM, peak-normalized per file."""
+    """写入峰值归一化的 16 位单声道 WAV。"""
     path.parent.mkdir(parents=True, exist_ok=True)
     x = np.asarray(samples, dtype=np.float64)
     x = x - x.mean()
@@ -187,7 +178,7 @@ def center_rows(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def whiten_rows(x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return whitened data z = whitening @ (x - mean)."""
+    """返回白化数据 z = whitening @ (x - mean)。"""
     xc, mean = center_rows(x)
     cov = (xc @ xc.T) / xc.shape[1]
     eigvals, eigvecs = np.linalg.eigh(cov)
@@ -210,7 +201,7 @@ def fastica(
     max_iter: int = 1000,
     tol: float = 1e-6,
 ) -> SeparationResult:
-    """Symmetric FastICA with tanh contrast."""
+    """使用 tanh 对比函数的对称 FastICA。"""
     z, _, _ = whiten_rows(x)
     n_components, n_samples = z.shape
     rng = np.random.default_rng(seed)
@@ -245,9 +236,8 @@ def delayed_covariance(z: np.ndarray, lag: int) -> np.ndarray:
 
 def amuse(x: np.ndarray, sample_rate: int) -> SeparationResult:
     """
-    AMUSE separates whitened observations by diagonalizing one delayed covariance.
-    The lag is selected from common audio-scale candidates using a blind quality
-    criterion over temporal covariance diagonality.
+    AMUSE 通过延迟协方差对角化分离白化观测。
+    用时间协方差对角性选择延迟。
     """
     z, _, _ = whiten_rows(x)
     n_samples = z.shape[1]
@@ -298,7 +288,7 @@ def standardize_rows(x: np.ndarray) -> np.ndarray:
 
 
 def fix_source_scale_and_order(sources: np.ndarray) -> np.ndarray:
-    """Make arbitrary BSS sign/order choices deterministic for output files."""
+    """固定 BSS 输出的符号和顺序。"""
     s = standardize_rows(sources)
     for idx in range(s.shape[0]):
         if abs(float(s[idx].min())) > abs(float(s[idx].max())):

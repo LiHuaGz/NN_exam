@@ -1,18 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Q1 numerical verification for the parameter construction in Question 1(2).
+验证第1题(2)的参数构造。
 
-The theory constructs parameters (g_syn, mu, sigma) so that the inter-spike
-interval T approximately satisfies
+用小噪声公式构造 (g_syn, mu, sigma)，使脉冲间隔 T 近似满足
+E[T]=m、Var(T)=v；再用蒙特卡洛检验均值和方差。
 
-    E[T] = m,    Var(T) = v.
-
-This script fixes the random seed, generates three random target settings, uses
-the small-noise formulas from the derivation to construct the parameters, and
-then estimates the actual mean/variance of T by Monte Carlo simulation.
-
-Outputs are written to python/Q1_outputs.
+结果保存到 python/Q1_outputs。
 """
 from __future__ import annotations
 
@@ -95,7 +89,7 @@ def configure_plot_style() -> None:
 
 
 def C_value(t: float, g_L: float, tau: float) -> float:
-    """C(t)=Var[Z(t)] for the unit-noise perturbation used in the derivation."""
+    """推导中的单位噪声方差 C(t)=Var[Z(t)]。"""
     kappa = 1.0 / tau
     if abs(g_L - kappa) < 1e-8:
         return (
@@ -168,8 +162,7 @@ def make_random_scenarios(rng: np.random.Generator) -> list[Scenario]:
         g_syn = float(rng.uniform(0.7, 1.8))
         target_mean = tau_ref + t0
 
-        # The construction is a small-noise approximation, so choose modest
-        # target coefficients of variation.
+        # 小噪声近似，选较小变异系数。
         cv = float(rng.uniform(0.030, 0.055))
         target_var = (cv * target_mean) ** 2
 
@@ -190,7 +183,7 @@ def make_random_scenarios(rng: np.random.Generator) -> list[Scenario]:
 
 
 def transition_matrices(scenario: Scenario, dt: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Exact Gaussian transition for X=(V,J) over one time step."""
+    """X=(V,J) 单步精确高斯转移。"""
     a = scenario.g_L
     b = 1.0 / scenario.tau
     noise_scale = scenario.beta / scenario.tau

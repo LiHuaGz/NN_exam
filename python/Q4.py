@@ -1,19 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Q4 numerical experiment for the Poisson population-code estimator.
+第4题
 
-For three fixed-random parameter sets (s, s_a, sigma_a, N), this script
-simulates spike counts
+随机生成三组参数 (s, s_a, sigma_a, N)，模拟脉冲计数
+K_a | s ~ Poisson(T f_a(s))，并用推导中的 MLE 估计 s。
+统计各观测窗口 T 下的平均平方误差。
 
-    K_a | s ~ Poisson(T f_a(s)),
-    f_a(s) = exp(-(s - s_a)^2 / (2 sigma_a^2)),
-
-then computes the MLE used in the derivation as an asymptotic MVUB estimator.
-The reported squared error is (s_hat - s)^2, averaged over repeated trials for
-each observation window T.
-
-Outputs are written to python/Q4_outputs by default.
+结果输出到 python/Q4_outputs。
 """
 from __future__ import annotations
 
@@ -97,7 +91,7 @@ def configure_plot_style() -> None:
 
 
 def tuning_rate(u: np.ndarray, s_a: np.ndarray, sigma_a: np.ndarray) -> np.ndarray:
-    """Return f_a(u) for all u and neurons."""
+    """计算所有 u 和神经元的 f_a(u)。"""
     return np.exp(-0.5 * ((u[:, None] - s_a[None, :]) / sigma_a[None, :]) ** 2)
 
 
@@ -139,11 +133,11 @@ def mle_from_counts(
     grid_rates_sum: np.ndarray,
 ) -> np.ndarray:
     """
-    Grid MLE with parabolic local interpolation.
+    网格 MLE，并做局部抛物线插值。
 
-    Dropping constants independent of u,
+    略去与 u 无关的常数：
         ell(u) = -0.5 A u^2 + B u - T sum_a f_a(u),
-    where A=sum_a K_a/sigma_a^2 and B=sum_a K_a s_a/sigma_a^2.
+    其中 A=sum_a K_a/sigma_a^2，B=sum_a K_a s_a/sigma_a^2。
     """
     inv_sigma2 = 1.0 / scenario.sigma_a**2
     a_stat = counts @ inv_sigma2

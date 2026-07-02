@@ -1,15 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Maze shortest-path planner based on a reinforcement-learning Bellman/Q update.
-
-Usage:
-  python maze_rl_gui.py maze.jpg
-  python maze_rl_gui.py maze.jpg --target 25 33 --save solved.png
-  python maze_rl_gui.py maze.jpg --pixel 558 404 --save solved.png
-
-Dependencies:
-  pip install numpy pillow matplotlib
+基于 Bellman/Q 更新的迷宫最短路径规划。
 """
 from __future__ import annotations
 
@@ -31,7 +23,7 @@ import numpy as np
 from PIL import Image
 
 
-DIRS = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # up, down, left, right
+DIRS = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # 上、下、左、右
 NEG = -1_000_000.0
 RANDOM_ROUTE_SEED = 7
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -42,7 +34,7 @@ PATH_HALO_COLOR = "white"
 
 
 def configure_chinese_font() -> None:
-    """Use an installed CJK font so Matplotlib GUI text renders Chinese correctly."""
+    """设置中文字体。"""
     candidates = [
         "Microsoft YaHei",
         "SimHei",
@@ -69,7 +61,7 @@ class PlanResult:
 
 
 class RLMazeSolver:
-    """Parse the attached maze image and solve arbitrary goals with Q-iteration."""
+    """解析迷宫图，并用 Q 迭代求目标路径。"""
 
     def __init__(self, image_path: str | Path, cell_size: Optional[int] = None) -> None:
         self.image_path = Path(image_path)
@@ -83,11 +75,11 @@ class RLMazeSolver:
         self.rows = (self.y1 - self.y0 + 1) // self.cell
         self.cols = (self.x1 - self.x0 + 1) // self.cell
 
-        self.grid = self._image_to_grid()  # True = road, False = wall
+        self.grid = self._image_to_grid()  # True 为路，False 为墙
         self.start = self.pixel_to_cell(*self.start_px)
         if self.start is None:
             raise ValueError("Detected start point is outside the maze box.")
-        self.grid[self.start] = True  # the yellow marker covers a road block, so force it open
+        self.grid[self.start] = True  # 起点标记覆盖道路，强制设为可走
 
     def _detect_start_pixel(self) -> tuple[int, int]:
         r = self.rgb[:, :, 0].astype(int)
@@ -101,7 +93,7 @@ class RLMazeSolver:
         return int(round(xs.mean())), int(round(ys.mean()))
 
     def _detect_maze_box(self) -> tuple[int, int, int, int, int]:
-        # The wall blocks are bright hatched blocks. A threshold of 40 isolates the rectangle well.
+        # 墙块较亮，阈值 40 可分离迷宫区域。
         bright = self.gray > 40
         ys, xs = np.where(bright)
         if len(xs) == 0:
@@ -111,7 +103,7 @@ class RLMazeSolver:
         w, h = x1 - x0 + 1, y1 - y0 + 1
         cell = math.gcd(w, h)
         if cell < 4:
-            # Fallback for a slightly noisy image. The supplied maze is exactly 8 px per block.
+            # 噪声兜底；给定迷宫每格 8 px。
             cell = 8
             w = (w // cell) * cell
             h = (h // cell) * cell
@@ -181,14 +173,11 @@ class RLMazeSolver:
 
     def q_iteration(self, goal: tuple[int, int], max_iter: Optional[int] = None) -> tuple[np.ndarray, int, bool]:
         """
-        Bellman optimality update on Q/V values.
+        对 Q/V 做 Bellman 最优性更新。
 
-        Reward design:
-          - every non-terminal move gives -1
-          - the goal is terminal with value 0
-          - gamma = 1
+        奖励设置：非终止移动为 -1，目标值为 0，gamma=1。
 
-        Therefore V*(s) = - shortest_distance(s, goal), and the greedy policy is a shortest path.
+        因此 V*(s) 为到目标最短距离的相反数。
         """
         max_iter = max_iter or (self.rows * self.cols + 5)
         value = np.full((self.rows, self.cols), NEG, dtype=float)
